@@ -17,9 +17,8 @@ ecoli<-rbind(ecoli_CU, ecoli_noCU)
 
 
 ```{r}
-ecoli_noCU$RlogA<-ecoli_noCU$R*log(ecoli_noCU$abundance)
-
 #Testing whether the slope with abundance improves the model
+ecoli_noCU$RlogA<-ecoli_noCU$R*log(ecoli_noCU$abundance)
 starting_vals = c(10^-5)
 summary(no_slope_glm<-glm(E ~R+0,start = starting_vals, family = poisson(link = identity), data = ecoli_noCU))
 starting_vals = c(10^-5, -10^-6)

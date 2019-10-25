@@ -1,48 +1,126 @@
-##Anlysis of the Simple and Final E.coli models with Chisq comparison
+##Anlysis of the E.coli models with Chisq comparison
 
-final_ecoli_binned_coding_table <- read.delim("final_ecoli_binned_coding_table.txt")
+---
+title: "Transcription Error rates R Notebook"
+output: html_notebook
+---
 
-#Create dummy variable containing the R*logA value for each site
-final_ecoli_binned_coding_table$RlogA<-final_ecoli_binned_coding_table$R*log(final_ecoli_binned_coding_table$abundance)
+```{r}
+#load data
 
+ecoli_noCU <- read.delim("final_ecoli_binned_coding_table.txt")
+ecoli_CU<-read.delim("CU_binned_8_table.txt")
+ecoli_CU<-subset(ecoli_CU, select = -c(T, lifetime))
+ecoli_CU<-merge(ecoli_CU, unique(ecoli_noCU[c("gene", "groEL")]), by = "gene")
+ecoli<-rbind(ecoli_CU, ecoli_noCU)
+```
+
+
+```{r}
+ecoli_noCU$RlogA<-ecoli_noCU$R*log(ecoli_noCU$abundance)
+
+#Testing whether the slope with abundance improves the model
+starting_vals = c(10^-5)
+summary(no_slope_glm<-glm(E ~R+0,start = starting_vals, family = poisson(link = identity), data = ecoli_noCU))
+starting_vals = c(10^-5, -10^-6)
+summary(single_intercept_glm<-glm(E ~R + RlogA+0,start = starting_vals, family = poisson(link = identity), data = ecoli_noCU))
+anova(no_slope_glm, single_intercept_glm, test = "Chisq")
+
+```
+
+
+```{r}
+#Testing whether each error type should have a separate intercept
+starting_vals = c(-10^-6, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5)
+summary(no_cond_inter_glm<-glm(E ~subtype:R+ RlogA+0,start = starting_vals, family = poisson(link = identity), data = ecoli_noCU))
+anova(single_intercept_glm, no_cond_inter_glm, test = "Chisq")
+```
+
+
+```{r}
 #Testing whether each condition should have a separate intercept
 starting_vals = c(-10^-6, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5)
-summary(no_cond_inter_glm<-glm(E ~subtype:R+ RlogA+0,start = starting_vals, family = poisson(link = identity), data = final_ecoli_binned_coding_table))
-starting_vals = c(10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, -10^-5, -10^-5,-10^-5,-10^-5)
-summary(cond_w_inter_glm<-glm(E ~subtype:R+condition:R + RlogA+0,start = starting_vals, family = poisson(link = identity), data = final_ecoli_binned_coding_table))
-print("p-value associated with including separate intercepts for groEL client proteins")
-pchisq(2*(logLik(cond_w_inter_glm)[1]-logLik(no_cond_inter_glm)[1]), df=3, lower.tail=FALSE)
+summary(no_cond_inter_glm<-glm(E ~subtype:R+ RlogA+0,start = starting_vals, family = poisson(link = identity), data = ecoli_noCU))
+starting_vals = c(-10^-6, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5)
+summary(cond_w_inter_glm<-glm(E ~subtype:R+condition:R + RlogA+0,start = starting_vals, family = poisson(link = identity), data = ecoli_noCU))
+anova(no_cond_inter_glm, cond_w_inter_glm, test = "Chisq")
+```
 
+```{r}
 #Testing whether each condition should have a separate slope
 starting_vals = c(10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5 , 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, -10^-6, -10^-6, -10^-7, -10^-8)
-summary(cond_slope_glm<-glm(E ~subtype:R+condition:R + condition:RlogA+0,start = starting_vals, family = poisson(link = identity), data = final_ecoli_binned_coding_table))
-print("p-value associated with including separate intercepts for groEL client proteins")
-pchisq(2*(logLik(cond_slope_glm)[1]-logLik(cond_w_inter_glm)[1]), df=3, lower.tail=FALSE)
+summary(cond_slope_glm<-glm(E ~subtype:R+condition:R + condition:RlogA+0,start = starting_vals, family = poisson(link = identity), data = ecoli_noCU))
+anova(cond_w_inter_glm, cond_slope_glm, test = "Chisq")
+```
 
-#testing whether the model is improved by giving G->A a separate slope
+
+```{r}
+#testing GA
 starting_vals = c(-10^-6, 0, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5,10^-5,10^-5)
-final_ecoli_binned_coding_table$type_GA<-ifelse(final_ecoli_binned_coding_table$subtype=='GA', final_ecoli_binned_coding_table$RlogA, 0)
-ga_glm<-glm(E ~subtype:R+condition:R + RlogA+type_GA+0,start = starting_vals, family = poisson(link = identity), data = final_ecoli_binned_coding_table)
+ecoli_noCU$type_GA<-ifelse(ecoli_noCU$subtype=='GA', ecoli_noCU$RlogA, 0)
+ga_slope_glm<-glm(E ~subtype:R+condition:R + RlogA+type_GA+0,start = starting_vals, family = poisson(link = identity), data = ecoli_noCU)
 starting_vals = c(-10^-6, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5,10^-5,10^-5)
-pooled_glm<-glm(E ~subtype:R+condition:R + RlogA+0,start = starting_vals, family = poisson(link = identity), data = final_ecoli_binned_coding_table)
-print("p-value associate with giving G->A it's own slope")
-pchisq(2*(logLik(ga_glm)[1] - logLik(pooled_glm)[1]), df=1, lower.tail=FALSE)
+pooled_glm<-glm(E ~subtype:R+condition:R + RlogA+0,start = starting_vals, family = poisson(link = identity), data = ecoli_noCU)
+anova(pooled_glm, ga_slope_glm, test = "Chisq")
 
+```
+
+```{r}
+#getting slopes for GA and non-GA
+starting_vals = c(-10^-6, 10^-5, 10^-5, 10^-5, 10^-5)
+summary(ga_glm<-glm(E ~condition:R + RlogA+0,start = starting_vals, family = poisson(link = identity), data = subset(ecoli_noCU, subtype == 'GA')))
+starting_vals = c(-10^-6, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5)
+summary(no_ga_glm<-glm(E ~subtype:R+condition:R + RlogA+0,start = starting_vals, family = poisson(link = identity), data = subset(ecoli_noCU, subtype != 'GA')))
+```
+
+
+```{r}
 #testing whether the model is improved by giving the remaining 10 error types their own slopes.
 starting_vals_sep<- c(10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5 , 10^-5, -10^-6, -10^-6, -10^-6, -10^-6, -10^-6, -10^-6, -10^-6, -10^-6, -10^-6, -10^-6 , -10^-6)
-separate_slopes_glm<-glm(E ~subtype:R+condition:R + subtype:RlogA+0,start = starting_vals_sep, family = poisson(link = identity), data = final_ecoli_binned_coding_table)
+separate_slopes_glm<-glm(E ~subtype:R+condition:R + subtype:RlogA+0,start = starting_vals_sep, family = poisson(link = identity), data = ecoli_noCU)
 summary(separate_slopes_glm)
 print("p-value associated with including separate a separate slope for G->A errors")
-pchisq(2*(logLik(separate_slopes_glm)[1]-logLik(ga_glm)[1]), df=9, lower.tail=FALSE)
+anova(ga_slope_glm, separate_slopes_glm, test = "Chisq")
 
+```
+
+
+```{r}
 #testing Synonymous vs. non-synonymous
 starting_vals = c(-10^-6, 0,10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5,10^-5,10^-5)
-summary(ga_syn_glm<-glm(E ~subtype:R+condition:R+SNS:R + RlogA+type_GA+0,start = starting_vals, family = poisson(link = identity), data = final_ecoli_binned_coding_table))
+summary(ga_syn_glm<-glm(E ~subtype:R+condition:R+SNS:R + RlogA+type_GA+0,start = starting_vals, family = poisson(link = identity), data = ecoli_noCU))
 print("p-value associated with including separate intercepts for synonymous and non-synonymous errors")
-pchisq(2*(logLik(ga_syn_glm)[1]-logLik(ga_glm)[1]), df=1, lower.tail=FALSE)
+pchisq(2*(logLik(ga_syn_glm)[1]-logLik(ga_slope_glm)[1]), df=1, lower.tail=FALSE)
+anova(ga_slope_glm, ga_syn_glm, test = "Chisq")
 
+```
+
+```{r}
 #testing groEL
 starting_vals = c(-10^-6, 0,10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5,10^-5,10^-5)
-summary(ga_groel_glm<-glm(E ~subtype:R+condition:R +groEL:R + RlogA+type_GA+0,start = starting_vals, family = poisson(link = identity), data = final_ecoli_binned_coding_table))
-print("p-value associated with including separate intercepts for groEL client proteins")
-pchisq(2*(logLik(ga_groel_glm)[1]-logLik(ga_glm)[1]), df=1, lower.tail=FALSE)
+summary(ga_groel_glm<-glm(E ~subtype:R+condition:R +groEL:R + RlogA+type_GA+0,start = starting_vals, family = poisson(link = identity), data = ecoli_noCU))
+anova(ga_slope_glm, ga_groel_glm, test = "Chisq")
+
+```
+
+```{r}
+#testing gene length and locus position
+max_locus <- aggregate(loci~gene, data = ecoli_noCU, FUN = "max")
+min_locus <- aggregate(loci~gene, data = ecoli_noCU, FUN = "min")
+min_locus$gene_length<-max_locus$loci - min_locus$loci
+min_locus$start_locus<-max_locus$loci
+min_locus<-subset(min_locus, select = -loci)
+
+ecoli_noCU<-merge(ecoli_noCU, min_locus, by = 'gene')
+ecoli_noCU$loci_position_abs<-ecoli_noCU$loci - ecoli_noCU$start_locus
+ecoli_noCU$loci_position_rel<-(ecoli_noCU$loci - ecoli_noCU$start_locus)/ecoli_noCU$gene_length
+```
+
+```{r}
+starting_vals= c(-10^-6, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 0, 0)
+summary(length_glm<-glm(E ~subtype:R+ gene_length:R+RlogA+gene_length:RlogA+0,start = starting_vals, family = poisson(link = identity), data = ecoli_noCU))
+summary(rel_pos_glm<-glm(E ~subtype:R+ loci_position_rel:R+RlogA+loci_position_rel:RlogA+0,start = starting_vals, family = poisson(link = identity), data = ecoli_noCU))
+summary(abs_pos_glm<-glm(E ~subtype:R+ loci_position_abs:R+RlogA+loci_position_abs:RlogA+0,start = starting_vals, family = poisson(link = identity), data = ecoli_noCU))
+```
+
+

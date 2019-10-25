@@ -1,40 +1,55 @@
+---
+title: "Saccharomyces transcription errors Notebook"
+output:
+  html_notebook: default
+  pdf_document: default
+---
 
-d<-read.table('final_sacc_binned_table.txt',header=TRUE)
+```{r}
+yeast_noCU <- read.delim("~/Downloads/final_sacc_binned_table.txt")
+yeast_CU<-read.delim("~/Downloads/CU_sacc_binned_6_table.txt")
+yeast_CU<-subset(yeast_CU, select = -T)
+yeast<-rbind(yeast_CU, yeast_noCU)
+```
 
-#Create dummy variable containing the R*logA value for each site
-RlogA <- d$R * log10(d$abundance) 
+```{r}
+yeast$RlogA<-yeast$R*log(yeast$abundance)
+summary(tot_err_glm<-glm(E~type:R+RlogA+ 0, family = poisson(link = identity), data = yeast))
+summary(CU_err_glm<-glm(E~type:R+type:RlogA+ 0, family = poisson(link = identity), data = yeast))
+anova(tot_err_glm, CU_err_glm, test = "Chisq")
 
-sink("yeast_analysis_glm.txt", append = TRUE)
-
-#Simple model of yeast data
-simple_glm = glm(formula = E ~ R + RlogA + 0, family = poisson(link = identity), data = d)summary(simple_gro_glm)
-summary(simple_glm)
-
-#Subtype Model as a factor of intercept for yeast data
-#No condition data is available for yeast so only substitution type is available for analysis
-int_subtype_glm = glm(formula = E ~ subtype:R + RlogA + 0, family = poisson(link = identity), data = d)
-summary(subtype_glm)
-                                               
-
-#Model with subtype as a factor of intercept and slope
-
-#Start values derived from coefficients of linear model
-#full_subtype_lm = lm(formula = E ~  subtype:R + subtype:RlogA + 0, data = d)
-#summary(full_subtype_lm)
-full_subtype_glm = glm(formula = E ~ subtype:R + subtype:RlogA + 0, family = poisson(link = identity), data = d, start = c(5e-07, 5e-07, 5e-07, 5e-07, 5e-07, 5e-07, 5e-07, 5e-07, 5e-07, 5e-07, 5e-07, 1e-09, 1e-09, 1e-09, 1e-09, 1e-09, 1e-09, 1e-09, 1e-09, 1e-09, 1e-09, 1e-09))
-summary(full_subtype_glm)
-sink()   
+```
 
 
-#Chisq test comparison of potential models:
 
-sink("yeast_analysis_glm.txt", append = TRUE)
-#Comparison of Simple Model to Multiple Intercepts
-anova(simple_glm, int_subtype_glm, test="Chisq")
 
-#Comparison of Simple Model with Different Slopes by Subtype
-anova(simple_glm, full_subtype_glm, test="Chisq")
+```{r}
+#all intercepts pooled vs. separate intercepts 
+yeast_noCU$RlogA<-yeast_noCU$R*log(yeast_noCU$abundance)
+summary(sacc_single_intercept_glm<-glm(E~ R + RlogA+0, family = poisson(link=identity), data = yeast_noCU))
+summary(sacc_sep_intercepts_glm<-glm(E~ subtype:R + RlogA+0, family = poisson(link=identity), data = yeast_noCU))
+anova(sacc_sep_intercepts_glm, sacc_single_intercept_glm, test = "Chisq")
 
-#Comparison of Intercept by Subtype and Single Slope with Different Slopes by Subtype
-anova(int_subtype_glm, full_subtype_glm, test="Chisq")
-sink()
+```
+
+```{r}
+#all slopes pooled vs. GA has it's own slope
+yeast_noCU$type_GA<-ifelse(yeast_noCU$subtype=='GA', yeast_noCU$RlogA, 0)
+summary(sacc_ga_glm<-glm(E~ subtype:R +RlogA +type_GA +0, family = poisson(link=identity), data = yeast_noCU))
+anova(sacc_ga_glm, sacc_sep_intercepts_glm, test = "Chisq")
+
+```
+
+
+
+
+```{r}
+#all slopes pooled vs. separate slopes for each type
+starting_vals<-c(10^-6, 10^-6, 10^-6, 10^-6, 10^-6, 10^-6, 10^-6, 10^-6, 10^-6, 10^-6, 10^-6, -10^-8, -10^-8, -10^-8, -10^-8, -10^-8, -10^-8, -10^-8, -10^-8, -10^-8, -10^-8, -10^-8)
+summary(sacc_sep_slopes_glm<-glm(E~ subtype:R +subtype:RlogA +0, family = poisson(link=identity), start = starting_vals, data = yeast_noCU))
+anova(sacc_sep_slopes_glm, sacc_sep_intercepts_glm, test = "Chisq")
+
+```
+
+
+

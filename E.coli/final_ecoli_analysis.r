@@ -1,5 +1,3 @@
-##Anlysis of the E.coli models with Chisq comparison
-
 ---
 title: "Transcription Error rates R Notebook"
 output: html_notebook
@@ -8,7 +6,7 @@ output: html_notebook
 ```{r}
 #load data
 
-ecoli_noCU <- read.delim("final_ecoli_binned_coding_table.txt")
+ecoli_noCU <- read.delim("inal_ecoli_binned_coding_table.txt")
 ecoli_CU<-read.delim("CU_binned_8_table.txt")
 ecoli_CU<-subset(ecoli_CU, select = -c(T, lifetime))
 ecoli_CU<-merge(ecoli_CU, unique(ecoli_noCU[c("gene", "groEL")]), by = "gene")
@@ -55,9 +53,9 @@ anova(cond_w_inter_glm, cond_slope_glm, test = "Chisq")
 
 ```{r}
 #testing GA
-starting_vals = c(-10^-6, 0, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5,10^-5,10^-5)
-ecoli_noCU$type_GA<-ifelse(ecoli_noCU$subtype=='GA', ecoli_noCU$RlogA, 0)
-ga_slope_glm<-glm(E ~subtype:R+condition:R + RlogA+type_GA+0,start = starting_vals, family = poisson(link = identity), data = ecoli_noCU)
+starting_vals = c(10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5,10^-5,10^-5, -10^-6, -10^-6)
+ecoli_noCU$isGA<-ifelse(ecoli_noCU$subtype == "GA", "GA", "nonGA")
+ga_slope_glm<-glm(E ~subtype:R+condition:R + isGA:RlogA+0,start = starting_vals, family = poisson(link = identity), data = ecoli_noCU)
 starting_vals = c(-10^-6, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5,10^-5,10^-5)
 pooled_glm<-glm(E ~subtype:R+condition:R + RlogA+0,start = starting_vals, family = poisson(link = identity), data = ecoli_noCU)
 anova(pooled_glm, ga_slope_glm, test = "Chisq")
@@ -68,8 +66,8 @@ anova(pooled_glm, ga_slope_glm, test = "Chisq")
 #getting slopes for GA and non-GA
 starting_vals = c(-10^-6, 10^-5, 10^-5, 10^-5, 10^-5)
 summary(ga_glm<-glm(E ~condition:R + RlogA+0,start = starting_vals, family = poisson(link = identity), data = subset(ecoli_noCU, subtype == 'GA')))
-starting_vals = c(-10^-6, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5)
-summary(no_ga_glm<-glm(E ~subtype:R+condition:R + RlogA+0,start = starting_vals, family = poisson(link = identity), data = subset(ecoli_noCU, subtype != 'GA')))
+starting_vals = c(10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, -10^-6, -10^-6)
+summary(no_ga_glm<-glm(E ~subtype:R+condition:R + subtype:RlogA+0,start = starting_vals, family = poisson(link = identity), data = subset(ecoli_noCU, subtype != 'GA')))
 ```
 
 
@@ -78,7 +76,6 @@ summary(no_ga_glm<-glm(E ~subtype:R+condition:R + RlogA+0,start = starting_vals,
 starting_vals_sep<- c(10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5 , 10^-5, -10^-6, -10^-6, -10^-6, -10^-6, -10^-6, -10^-6, -10^-6, -10^-6, -10^-6, -10^-6 , -10^-6)
 separate_slopes_glm<-glm(E ~subtype:R+condition:R + subtype:RlogA+0,start = starting_vals_sep, family = poisson(link = identity), data = ecoli_noCU)
 summary(separate_slopes_glm)
-print("p-value associated with including separate a separate slope for G->A errors")
 anova(ga_slope_glm, separate_slopes_glm, test = "Chisq")
 
 ```
@@ -86,18 +83,16 @@ anova(ga_slope_glm, separate_slopes_glm, test = "Chisq")
 
 ```{r}
 #testing Synonymous vs. non-synonymous
-starting_vals = c(-10^-6, 0,10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5,10^-5,10^-5)
-summary(ga_syn_glm<-glm(E ~subtype:R+condition:R+SNS:R + RlogA+type_GA+0,start = starting_vals, family = poisson(link = identity), data = ecoli_noCU))
-print("p-value associated with including separate intercepts for synonymous and non-synonymous errors")
-pchisq(2*(logLik(ga_syn_glm)[1]-logLik(ga_slope_glm)[1]), df=1, lower.tail=FALSE)
+starting_vals = c(10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5,10^-5,10^-5, -10^-6, -10^-6)
+summary(ga_syn_glm<-glm(E ~subtype:R+condition:R+SNS:R + isGA:RlogA+0,start = starting_vals, family = poisson(link = identity), data = ecoli_noCU))
 anova(ga_slope_glm, ga_syn_glm, test = "Chisq")
 
 ```
 
 ```{r}
 #testing groEL
-starting_vals = c(-10^-6, 0,10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5,10^-5,10^-5)
-summary(ga_groel_glm<-glm(E ~subtype:R+condition:R +groEL:R + RlogA+type_GA+0,start = starting_vals, family = poisson(link = identity), data = ecoli_noCU))
+starting_vals = c(10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5, 10^-5,10^-5,10^-5, -10^-6, -10^-6)
+summary(ga_groel_glm<-glm(E ~subtype:R+condition:R +groEL:R + isGA:RlogA+0,start = starting_vals, family = poisson(link = identity), data = ecoli_noCU))
 anova(ga_slope_glm, ga_groel_glm, test = "Chisq")
 
 ```
